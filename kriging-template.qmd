@@ -52,7 +52,12 @@ ca_counties_sf <- read_sf(here("data/ca_counties"), layer = "CA_Counties_TIGER20
 ### Read in the depth to groundwater layer: 
 ca_dgw_sf <- read_sf(here('data/ca_dgw', 
                           'ca_dgw_for_lab.gpkg')) %>% 
-  janitor::clean_names()
+  janitor::clean_names() %>% 
+  select()
+  
+
+ca_counties_sf
+ca_dgw_sf
 
 ```
 
@@ -61,15 +66,32 @@ ca_dgw_sf <- read_sf(here('data/ca_dgw',
 Take time to check the CRSs for each layer, transform if necessary, and then make a quick visualization. Make sure to rename the depth column to something more useful such as `depth`.
 
 ```{r}
+# Transform depth data
+#st_crs(ca_dgw_sf)
+ca_dgw_3857_sf <- st_transform(ca_dgw_sf, st_crs(ca_counties_sf)) %>%
+  rename(depth = dgbs)
 
+ggplot()+
+  geom_sf(data = ca_counties_sf, color = 'grey', alpha=0.7)+
+  geom_sf(data = ca_dgw_3857_sf, aes(color = depth))
+  
 ```
-
 
 # Focus on San Joaquin County
 
 Let's just look at depth to groundwater (ft) in and around San Joaquin County. Filter out San Joaquin county. Then use `st_intersections` to "cut" out all the groundwater plots contained in San Joaquin. Finally, make a quick plot of the county and the wells using depth as a color aesthetic.
 
+```{r}
+sj_county_sf <- ca_counties_sf %>% 
+  filter(name=='San Joaquin')
 
+sj_depth_sf <- ca_dgw_3857_sf %>% 
+  st_intersection(sj_county_sf) # compare this to 
+
+ggplot()+
+  geom_sf(data=sj_county_sf)+
+  geom_sf(data=sj_depth_sf, aes(color=depth))
+```
 
 # Spatial interpolation
 
@@ -90,8 +112,7 @@ plot(sj_dgw_vgm)
 
 ```
 
-One we have built the variogram object, we need to specify how to fit it. This is similar in tidymodels where we use fit() after building our workflow to fit the model on training data. Now we need to tell which type of model to run and whether to include a nugget that is not equal to zero.  See `?fit.variogram` for more information.
-
+One we have built the variogram object, we need to specify how to fit it. This is similar in tidymodels where we use fit() after building our workflow to fit the model on training data. Now we need to tell which type of model to run and whether to include a nugget that is not equal to zero. See `?fit.variogram` for more information.
 
 ```{r}
 
@@ -106,7 +127,6 @@ plot(sj_dgw_vgm, vgm_fit)
 ### You can check the sum of squares of residuals for different models: 
 attr(vgm_fit, 'SSErr') # ...and you could compare to other models...
 ```
-
 
 ## Spatial kriging
 
